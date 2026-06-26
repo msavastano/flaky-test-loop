@@ -1,0 +1,12 @@
+{
+  "_comment": "Windows gotcha: any npx-based MCP server MUST be wrapped as 'cmd /c npx ...' below. A bare 'npx' command as the entry point fails SILENTLY on Windows (no error, the server just never comes up) because npx.cmd needs cmd.exe to execute, not a direct exec.",
+  "mcpServers": {
+    "github": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    }
+  }
+}

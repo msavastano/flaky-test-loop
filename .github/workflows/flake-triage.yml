@@ -1,0 +1,56 @@
+name: flake-triage
+
+# Cloud cron leg of the scheduling pair (see scripts/register-task.ps1 for the
+# local Windows leg). This one turns even with the dev machine off.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci
+
+      # Runs the flake-triage skill via the Claude Code Action. Requires
+      # ANTHROPIC_API_KEY configured as a repo secret.
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Run the flake-triage skill (.claude/skills/flake-triage/SKILL.md).
+            For each kept flake, hand off to flake-fixer (generator), then have
+            flake-reviewer (evaluator) adversarially verify the result before
+            anything is proposed for merge. Follow the Stop rules exactly —
+            quarantine, don't fake-fix, anything you're not confident in.
+          claude_args: |
+            --max-turns 40
+
+      # The action above is expected to commit state/flake-history.md updates and
+      # push fix/quarantine branches itself. This step opens (or updates) a PR per
+      # branch it created — never auto-merges. Human review is permanent, not a
+      # placeholder; see README's HUMAN REVIEW section.
+      - name: Open PRs for any flake/* branches pushed this run
+        run: |
+          git fetch origin 'refs/heads/flake/*:refs/remotes/origin/flake/*' --no-tags || true
+          for branch in $(git branch -r | grep 'origin/flake/' | sed 's/origin\///'); do
+            gh pr create \
+              --head "$branch" \
+              --base main \
+              --title "flake-triage: $branch" \
+              --body "Opened automatically by the flake-triage cron job. Reviewed and verified by flake-reviewer (see CI logs for its PASS/REJECT transcript) — still requires human merge approval, this workflow never auto-merges." \
+              || echo "PR for $branch already exists or nothing to open"
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

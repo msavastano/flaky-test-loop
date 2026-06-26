@@ -1,0 +1,21 @@
+{
+  "_comment": "Guardrails for the flake-triage loop. Set assuming something spins idle overnight: a flake loop re-running the suite N times per candidate, on a daily cron, is a token-blowout risk if left unbounded. Every number below is a hard ceiling, not a suggestion.",
+
+  "suiteRunsPerCandidate": 10,
+  "_suiteRunsPerCandidate_comment": "How many times the suite is re-run to decide if a test is flaky vs. a hard failure, and again by the evaluator to verify a fix. A single green run proves nothing for a flake.",
+
+  "maxFlakeCandidatesPerRound": 5,
+  "_maxFlakeCandidatesPerRound_comment": "Caps how many worktrees/generator agents spin up per discovery round, even if more candidates are found. Excess candidates stay queued in flake-history.md for the next round.",
+
+  "maxRetriesPerTest": 2,
+  "_maxRetriesPerTest_comment": "If the generator's fix doesn't pass evaluator review within this many attempts, the test is force-routed to quarantine + inbox instead of retried indefinitely.",
+
+  "perRunTokenBudget": 150000,
+  "_perRunTokenBudget_comment": "Approximate token ceiling for a single discovery+fix+review round across all agents combined.",
+
+  "dailyTokenBudget": 600000,
+  "_dailyTokenBudget_comment": "Ceiling across all scheduled runs in a 24h period (cloud cron + local Task Scheduler combined). Once hit, remaining candidates wait for the next day's round.",
+
+  "evaluatorMinimumRuns": 10,
+  "_evaluatorMinimumRuns_comment": "Floor on how many times the evaluator must re-run the suite before issuing PASS. Never settable below suiteRunsPerCandidate."
+}
