@@ -24,23 +24,32 @@ test('race: worker timer narrowly beats the deadline timer', async () => {
 });
 
 // --- Flake 2: order-dependent / shared mutable module state -------------------
-// Module-level counter is read-modify-written by concurrently running tests with
-// no isolation or reset. Real fix: give each test its own state, or make the
-// increment atomic (no `await` between read and write).
-let sharedCounter = 0;
+// Previously a single module-level `let sharedCounter = 0` was read, then
+// awaited across a random setTimeout, then written, while both (a) and (b) ran
+// concurrently via test.concurrent. The await let the two tests interleave the
+// read-modify-write, so `sharedCounter - before` was not reliably 1.
+//
+// Real fix: give each test its own isolated counter (no shared module state),
+// so there is nothing left for another concurrently-running test to mutate
+// between this test's read and write, regardless of await ordering.
+function makeCounter() {
+  return { value: 0 };
+}
 
 test.concurrent('order: counter increments exactly once between read and write (a)', async () => {
-  const before = sharedCounter;
+  const counter = makeCounter();
+  const before = counter.value;
   await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
-  sharedCounter += 1;
-  expect(sharedCounter - before).toBe(1);
+  counter.value += 1;
+  expect(counter.value - before).toBe(1);
 });
 
 test.concurrent('order: counter increments exactly once between read and write (b)', async () => {
-  const before = sharedCounter;
+  const counter = makeCounter();
+  const before = counter.value;
   await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
-  sharedCounter += 1;
-  expect(sharedCounter - before).toBe(1);
+  counter.value += 1;
+  expect(counter.value - before).toBe(1);
 });
 
 // --- Flake 3: nondeterministic input in the assertion path --------------------
