@@ -42,9 +42,27 @@ if (-not $claudeExe) {
 
 $prompt = 'Run the flake-triage skill (.claude/skills/flake-triage/SKILL.md). For each kept flake, hand off to flake-fixer then have flake-reviewer adversarially verify before proposing a merge. Follow the Stop rules exactly.'
 
+$logPath = Join-Path $repoRoot 'state\triage-run.log'
+
+# Run via cmd.exe so output can be redirected to a log. A bare scheduled
+# `claude --print` writes to a console that closes on exit, leaving no trail —
+# which is exactly why a failed run looks like "nothing happened".
+#
+# --dangerously-skip-permissions is REQUIRED here, not optional: a detached
+# scheduled task has no interactive session to answer permission prompts, so
+# without it every Bash/Edit/Write tool call blocks and is denied, the agent
+# does zero disk work, and the process still exits 0. The flag grants the
+# unattended agent full tool access with your credentials — the same autonomy
+# the cloud cron already runs at, now on this machine. Scope it down with
+# --allowedTools instead if that trust level is too broad.
+#
+# The cmd /c wrapper is also the README's Windows gotcha: claude on PATH is a
+# .cmd shim that needs cmd.exe to exec, not a direct call.
+$claudeCmd = "`"$claudeExe`" --print --dangerously-skip-permissions `"$prompt`" >> `"$logPath`" 2>&1"
+
 $action = New-ScheduledTaskAction `
-  -Execute $claudeExe `
-  -Argument "--print `"$prompt`"" `
+  -Execute "$env:SystemRoot\System32\cmd.exe" `
+  -Argument "/c `"$claudeCmd`"" `
   -WorkingDirectory $repoRoot
 
 $trigger = New-ScheduledTaskTrigger -Daily -At $Time
