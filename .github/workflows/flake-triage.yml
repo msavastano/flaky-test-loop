@@ -3,8 +3,6 @@ name: flake-triage
 # Cloud cron leg of the scheduling pair (see scripts/register-task.ps1 for the
 # local Windows leg). This one turns even with the dev machine off.
 on:
-  schedule:
-    - cron: '0 6 * * *'
   workflow_dispatch: {}
 
 permissions:
@@ -19,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - run: npm ci
 
